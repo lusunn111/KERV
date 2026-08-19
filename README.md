@@ -1,123 +1,250 @@
-# KERV-FlagOS
+# KERV
 
-**面向具身智能物理反馈的推测执行与 FlagOS 系统优化。**
+**Kinematic-Rectified Speculative Generation for Embodied VLA Models with On-Device Runtime Optimization**
 
-KERV 将轻量 Drafter、主模型批量验证、动态接受机制与 Kalman/运动学反馈
-组织为一条闭环 VLA 推理链。本仓库提供 KERV 在 FlagScale 上的精简开源
-实现，以及面向单 Batch、短序列验证树负载的 FlagOS 专项算子和无损系统优化。
+KERV is a speculative generation framework for accelerating autoregressive
+Vision-Language-Action (VLA) models. It connects token-domain VLA generation
+with kinematic-domain robot control to address two limitations of speculative
+decoding in embodied tasks:
 
-> 当前为有限研究发布：代码、最终 BF16 安全配置和训练方法已公开；模型权重、
-> 生成数据、实验日志、Profiler、消融配置和论文图片不在仓库中。
+1. rejected draft tokens normally trigger expensive re-inference; and
+2. a fixed relaxed acceptance threshold cannot adapt to changing robot states,
+   tasks, and environments.
 
-## 主要特性
+KERV uses a Kalman-filter-based mechanism to compensate for rejected action
+tokens without re-inference and adjusts the acceptance threshold using
+kinematic variability. The on-device runtime further combines CPU-GPU
+collaborative execution, static tree-based verification, and hardware-aware
+operator fusion.
 
-- **FlagScale 一键纳管：** 一份配置管理模型路径、进程、环境、日志和 LIBERO
-  任务，正式运行只有一个公开入口 `run_kerv.py`。
-- **具身专项算子：** 提供 18 个 `torch.ops.flagos_embodied` 接口；BF16 安全
-  配置注册 14 个主线接口，其余实现以安全或实验开关保留。
-- **模型计算融合：** 对实际输入规模选择性启用 QKV 与
-  Gate-Up-SwiGLU 融合，未达到收益门限的输入自动走原生 CUDA 路径。
-- **闭环系统优化：** 静态验证树、常驻 K/V、CUDA Graph、持久化工作区、
-  CPU-GPU 控制量压缩和 Commit/Draft 双流协同均包含在最终链路中。
-- **精度优先：** 默认关闭 W8A16、紧凑树及未通过完整验收的实验优化，保留
-  KERV 原始阈值、Kalman 逻辑和动作语义。
+> This repository is a research release. It contains the KERV inference path,
+> optimized operators, runtime integration, and drafter training pipeline.
+> Model weights, generated training samples, datasets, profiler traces, and
+> robot assets are not distributed with the source code.
 
-## 发布范围
+## Overview
 
-| 已公开 | 未公开 |
-|---|---|
-| 单一 FlagScale 启动入口与最终配置 | Base/Drafter 权重 |
-| KERV 推理核心与 LIBERO Goal 链路 | 生成的训练样本与数据集 |
-| 18 个具身算子接口及原生回退 | Profiler、微基准和内部测试脚本 |
-| QKV、Gate-Up-SwiGLU 等融合实现 | 历史配置、失败实验和消融配置 |
-| 静态树、常驻缓存与计算图运行时 | 实验日志、视频和论文图片 |
-| Drafter 数据生成和训练方法 | 第三方模型与仿真资产 |
-
-仓库结构：
-
-```text
-KERV-FlagOS/
-├── run_kerv.py                 # 唯一公开运行入口
-├── configs/kerv_libero_goal.yaml
-├── kerv_flagos/                # FlagOS 算子、融合与 FlagScale 入口
-├── openvla/                    # KERV/OpenVLA 最小运行依赖
-├── training/                   # Drafter 数据生成与训练配置
-└── docs/                       # 算子和训练说明
-```
-
-## 计算流程
+An autoregressive VLA model produces a seven-DoF action slice as a sequence of
+action tokens. A lightweight drafter proposes candidate tokens, and the VLA
+model verifies them in parallel. KERV augments this process with kinematic
+feedback:
 
 ```text
 Observation + Instruction
-          │
-          ▼
-   OpenVLA visual/prompt prefill
-          │
-          ▼
-  Drafter candidate generation
-          │
-          ▼
- Static-tree batched verification ──► Verify / Accept
-          │                                │
-          └──── Kalman & kinematic feedback
-                                           │
-                                           ▼
-                                     Robot action
+          |
+          v
+   VLA Prefill / Drafter
+          |
+          v
+ Candidate Action Tokens
+          |
+          v
+ Batched Tree Verification ---- accepted prefix ----+
+          |                                         |
+          | rejected token                          |
+          v                                         |
+ Token-to-Action Mapping                            |
+          |                                         |
+          v                                         |
+ Kalman-Filter Compensation                         |
+          |                                         |
+          +------------------+----------------------+
+                             |
+                             v
+                    Complete Robot Action
+                             |
+                             v
+              Kinematic Threshold Adjustment
 ```
 
-FlagScale 负责启动、配置和日志纳管；KERV 的 Transformer 融合、静态树算子、
-常驻缓存和计算图由本仓库的 `kerv_flagos` 扩展实现。详细接口见
-[docs/OPERATORS.md](docs/OPERATORS.md)。
+The verification and draft models execute on the GPU, while the lightweight
+Kalman compensation and threshold adjustment run on the CPU. Only the required
+control values are exchanged between the two sides.
 
-## 安装
+## Method
 
-参考环境为 Linux、Python 3.10、CUDA 12.x 和 A100。建议使用独立环境：
+### KF-Based Compensation Mechanism
+
+When speculative verification encounters an incorrect action token, standard
+methods discard the remaining draft and invoke the VLA model again. KERV
+instead maps the accepted token prefix to continuous robot actions, maintains
+DoF-grained action histories, and uses a Kalman filter to predict the remainder
+of the current action slice. The accepted VLA actions and predicted actions are
+concatenated into one complete command, avoiding costly re-inference.
+
+The default setting uses an action context of 10 and a prediction length of 1.
+To prevent error accumulation, compensation is activated intermittently; the
+following four inference steps use speculative generation without Kalman
+compensation.
+
+### Kinematic-Based Threshold Adjustment
+
+A single relaxed threshold is not reliable across different stages of a robot
+trajectory. KERV measures the difference between accepted draft tokens and
+verifier tokens, maps the token discrepancy into kinematic variability, and
+uses the variability to update the acceptance threshold online. Task- and
+robot-specific bounds are obtained through offline pre-sampling; the paper uses
+`r_max = 15` and `r_min = 5` for most tasks.
+
+This mechanism preserves the speed benefit of relaxed verification while
+rejecting errors that appear small in token space but are unsafe in kinematic
+space.
+
+### On-Device Runtime Optimization
+
+KERV includes three complementary runtime optimizations:
+
+- **CPU-GPU collaborative deployment.** Draft and verification inference run
+  on the GPU; Kalman compensation and threshold adjustment run on the CPU.
+- **Static tree-based verification.** Offline acceptance statistics are used to
+  preset a depth-5 verification tree. Node layouts, parent-child relations,
+  attention masks, position IDs, and retrieve indices are fixed in reusable
+  templates.
+- **Hardware execution optimization.** Candidate generation is batched, tree
+  buffers remain at fixed GPU addresses, verification graphs are replayed with
+  CUDA Graphs, and high-frequency Transformer paths are fused.
+
+The released implementation additionally provides persistent K/V caches,
+persistent decode workspaces, compact CPU-GPU control transfers, and graph-safe
+fallback paths. These optimizations do not change the acceptance rule, Kalman
+logic, or action definition.
+
+## Main Results
+
+### LIBERO simulation
+
+The TCAD manuscript evaluates 50 trials for each task in all four LIBERO task
+suites. KERV uses a fine-tuned OpenVLA verifier and a one-block LLaMA drafter.
+
+| Suite | Success Rate | Speedup | AFEP | Avg. Steps |
+|---|---:|---:|---:|---:|
+| LIBERO-Goal | 75.6% | 2.34x | 4.73 | 153.5 |
+| LIBERO-Object | 72.3% | 2.22x | 4.71 | 186.8 |
+| LIBERO-Spatial | 83.7% | **2.39x** | 4.67 | 120.9 |
+| LIBERO-Long | 48.8% | 2.31x | 4.64 | 391.2 |
+
+Speedup is measured against Naive VLA+SD in the corresponding suite. AFEP is
+the average first error position. The paper reports up to **2.39x** simulation
+speedup with minimal success-rate degradation.
+
+### Runtime ablation on LIBERO-Goal
+
+| Framework | Runtime configuration | Success Rate | Speedup |
+|---|---|---:|---:|
+| Naive VLA+SD | -- | 76.2% | 1.00x |
+| SpecVLA (`r=9`) | -- | 75.4% | 1.19x |
+| SpecVLA (`r=15`) | -- | 71.0% | 1.23x |
+| KERV | + CPU-GPU deployment | 75.4% | 1.54x |
+| KERV | + Static tree-based verification | 75.8% | 1.83x |
+| KERV | + Hardware execution optimization | 75.4% | **2.34x** |
+
+The hardware optimizations are lossless with respect to KERV inference
+semantics; small success-rate variations arise from independent evaluation
+runs.
+
+### Real-world manipulation
+
+KERV is also evaluated on an AgileX Piper robot arm in three task categories.
+
+| Task | Avg. Score | Speedup | AFEP | Avg. Steps |
+|---|---:|---:|---:|---:|
+| Atomic Grasping | 0.85 | 2.16x | 4.56 | 45.9 |
+| Spatial Movement | 0.79 | **2.23x** | 4.17 | 81.2 |
+| Long-Horizon Reasoning | 0.59 | 2.10x | 3.37 | 106.2 |
+
+## Released Implementation
+
+```text
+KERV-FlagOS/
+|-- run_kerv.py                    # public inference entry point
+|-- configs/kerv_libero_goal.yaml  # default BF16 runtime configuration
+|-- kerv_flagos/                   # optimized operators and runtime support
+|-- openvla/                       # minimal OpenVLA/KERV runtime
+|-- training/                      # drafter data generation and training
+`-- docs/                          # operator and training documentation
+```
+
+The public implementation includes 18 registered embodied-inference operator
+interfaces. The default accuracy-safe path enables the operators that passed
+correctness and performance checks and retains native fallbacks for unsupported
+layouts.
+
+Key optimized paths include:
+
+- fused Q/K/V projection;
+- fused Gate-Up-SwiGLU execution;
+- static-tree packing and tree attention;
+- action verification and acceptance;
+- RoPE with persistent K/V-cache writes;
+- accepted-path K/V commit;
+- action-space projection and selection;
+- persistent CUDA Graph inputs, caches, and control buffers.
+
+The operators are exposed through `torch.ops.flagos_embodied`; interface and
+fallback details are documented in
+[docs/OPERATORS.md](docs/OPERATORS.md). FlagScale is used by the released
+launcher for configuration, process management, and reproducible execution,
+while KERV remains independent of the launcher namespace and scheduling layer.
+
+## Installation
+
+The reference environment uses Linux, Python 3.10, CUDA 12.x, and BF16. Create
+an isolated environment and install PyTorch for the CUDA version on your host:
 
 ```bash
-conda create -n kerv-flagos python=3.10 -y
-conda activate kerv-flagos
+git clone https://github.com/lusunn111/KERV-FlagOS.git KERV
+cd KERV
+
+conda create -n kerv python=3.10 -y
+conda activate kerv
+
+# Install a CUDA-compatible PyTorch build first.
+python -m pip install -r requirements.txt
+python -m pip install -e openvla
+```
+
+Install LIBERO and the runtime launcher:
+
+```bash
+git clone https://github.com/Lifelong-Robot-Learning/LIBERO.git third_party/LIBERO
+python -m pip install -e third_party/LIBERO
 
 git clone https://github.com/flagos-ai/FlagScale.git third_party/FlagScale
 python -m pip install -e third_party/FlagScale
-
-# 请先按本机 CUDA 版本安装 PyTorch，再安装其余依赖。
-python -m pip install -r requirements.txt
-python -m pip install -e openvla
-
-git clone https://github.com/Lifelong-Robot-Learning/LIBERO.git third_party/LIBERO
-python -m pip install -e third_party/LIBERO
 ```
 
-OpenVLA 的 FlashAttention 安装方式与 CUDA/PyTorch 组合相关；如需启用，请在
-PyTorch 安装完成后执行：
+FlashAttention is optional and depends on the local CUDA/PyTorch combination:
 
 ```bash
 python -m pip install flash-attn --no-build-isolation
 ```
 
-## 准备模型
+## Checkpoints
 
-权重不随仓库发布。请将合法获取或自行训练的权重整理为：
+Weights are not included. Prepare a LIBERO-adapted OpenVLA verifier and a KERV
+drafter checkpoint using the following layout:
 
 ```text
 checkpoints/
-├── openvla-libero-goal/
-│   ├── config.json
-│   ├── dataset_statistics.json
-│   ├── tokenizer.json
-│   ├── preprocessor_config.json
-│   └── model-*.safetensors
-└── kerv-drafter/
-    ├── config.json
-    └── pytorch_model.bin
+|-- openvla-libero-goal/
+|   |-- config.json
+|   |-- dataset_statistics.json
+|   |-- tokenizer.json
+|   |-- preprocessor_config.json
+|   `-- model-*.safetensors
+`-- kerv-drafter/
+    |-- config.json
+    `-- pytorch_model.bin
 ```
 
-Base checkpoint 是在 LIBERO Goal 上适配的 OpenVLA；Drafter 可以按照
-[docs/TRAINING.md](docs/TRAINING.md) 生成监督数据并训练。
+The verifier follows the OpenVLA fine-tuning setup. The drafter is a single
+LLaMA block trained from verifier features and action-token targets. See
+[docs/TRAINING.md](docs/TRAINING.md) for data generation, DeepSpeed training,
+and checkpoint export.
 
-## 快速运行
+## Quick Start
 
-先执行不加载权重的配置检查：
+Validate the complete configuration without loading model weights:
 
 ```bash
 python run_kerv.py \
@@ -125,7 +252,7 @@ python run_kerv.py \
   --dry-run
 ```
 
-运行一个完整 LIBERO Goal episode：
+Run one LIBERO-Goal episode:
 
 ```bash
 python run_kerv.py \
@@ -136,7 +263,7 @@ python run_kerv.py \
   --device 0
 ```
 
-快速检查八个动作步：
+Run an eight-step smoke test:
 
 ```bash
 python run_kerv.py \
@@ -147,53 +274,77 @@ python run_kerv.py \
   --max-episode-steps 8
 ```
 
-默认以前台方式输出 FlagScale 与 KERV 日志；加 `--background` 可交由
-FlagScale 后台管理。结果写入 `outputs/kerv_libero_goal/`。
+Outputs are written to `outputs/kerv_libero_goal/`. Use `--background` to hand
+the process to the launcher after configuration validation.
 
-## 默认优化配置
+## Training the Drafter
 
-默认配置是 A100 BF16 安全路径：
+The released training pipeline has two stages:
 
-- 48 路静态验证树，节点按 `224/240/248/256/264/280/320` 分桶；
-- QKV 与 Gate-Up-SwiGLU 按实测输入规模选择性融合；
-- RoPE/KV 写入、静态树 Attention 与接受路径 Commit 使用 `auto` 路由；
-- Prompt、Draft、Verifier CUDA Graph 与共享内存池开启；
-- 常驻主模型/Draft KV、持久化输入和控制缓冲开启；
-- W8A16、紧凑树、动作头裁剪和实验 GEMM epilogue 关闭。
+1. freeze the fine-tuned OpenVLA verifier and generate hidden-state/action-token
+   supervision from LIBERO trajectories;
+2. train the one-block drafter with DeepSpeed ZeRO-2 and export a standalone
+   checkpoint.
 
-内部参考环境的稳态单步时延约为 **131 ms**（A100、BF16、batch=1；不含
-首次编译和计算图捕获）。该数字用于说明参考配置，不代表不同驱动、权重、
-任务或硬件上的保证；请同时报告冷启动、Mean、Median 和 P95。
+The paper trains the drafter for approximately 12 hours on two NVIDIA A800
+40 GB GPUs using human-egocentric trajectories from LIBERO. Generated samples
+and checkpoints are excluded from version control. Reproduction commands and
+configuration details are available in
+[docs/TRAINING.md](docs/TRAINING.md).
 
-## 训练 Drafter
+## Reproducibility and Accuracy
 
-训练分为两步：首先冻结 OpenVLA，生成 verifier hidden state 与 action-token
-监督；随后使用 DeepSpeed ZeRO-2 训练一层 Drafter。完整命令、损失定义和
-checkpoint 导出方式见 [docs/TRAINING.md](docs/TRAINING.md)。训练权重和中间
-样本均由 `.gitignore` 排除。
+For performance evaluation, report cold start separately from steady state;
+the first Triton compilation and CUDA Graph capture must not be included in
+steady-state speedup. When enabling a new optimized path, compare the following
+values step by step against the BF16 reference path:
 
-## 正确性与复现原则
+- drafter candidates and ordering;
+- accepted length and best path;
+- verifier loop count and next token;
+- EOS and Kalman-compensation decisions;
+- decoded robot action and final task result.
 
-系统优化不修改候选宽度、接受阈值、Kalman 反馈或模型精度。启用新优化时，
-应逐步比较：Drafter 候选顺序、动作 Token、接受长度、最佳路径、Verify 次数、
-EOS、Kalman 分支和最终环境动作。首次 Triton 编译与 CUDA Graph 捕获应单独
-统计，不能并入稳态加速结果。
+Experimental W8A16 and compact-tree modes are disabled by default. The public
+default keeps the original KERV acceptance policy, Kalman logic, and action
+semantics.
 
-## 已知限制
+## Scope and Limitations
 
-- 当前公开默认配置主要在 A100、batch=1、BF16 和 LIBERO Goal 上验收；
-- FlagOS 提供跨芯片接口与编译基础，但本仓库不宣称尚未实测芯片的性能；
-- 权重和 LIBERO 资产需要用户自行准备；
-- 当前版本为研究代码，不建议直接用于安全关键的真实机器人控制。
+- Checkpoints, generated training data, datasets, and robot assets must be
+  obtained or produced separately.
+- The released default configuration targets batch-1 BF16 inference; operators
+  use native fallbacks when a device or tensor layout is unsupported.
+- The code is intended for research and should not be used directly in
+  safety-critical robot control.
+- Performance depends on the model checkpoint, task distribution, hardware,
+  CUDA stack, and graph warm-up policy.
 
-## 致谢
+## Citation
 
-本项目基于 OpenVLA、LIBERO、PyTorch、Triton、Hugging Face Transformers、
-FlagScale 和 FlagGems。感谢相关开源社区。具体许可说明见
-[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+If KERV is useful in your research, please cite the manuscript:
 
-## 许可与引用
+```bibtex
+@article{zheng2026kerv,
+  title   = {Kinematic-Rectified Speculative Generation for Embodied VLA Models with On-Device Runtime Optimization},
+  author  = {Zheng, Zihao and Mao, Zhihao and Han, Yulong and Cao, Hangyu and Chen, Jiayu and Li, Maoliang and Zhang, Zhaobo and Cao, Donggang and Mei, Hong and Chen, Xiang},
+  journal = {IEEE Transactions on Computer-Aided Design of Integrated Circuits and Systems},
+  year    = {2026}
+}
+```
 
-仓库包含 MIT 与 Apache-2.0 许可的组件，详见 `LICENSE`、`licenses/` 和各源
-文件头。模型与数据集遵循其各自许可。论文图片与正式 BibTeX 将在论文发布
-版本确定后补充。
+The BibTeX entry will be updated when the final bibliographic record becomes
+available.
+
+## Acknowledgements
+
+This project builds on OpenVLA, LIBERO, EAGLE-2, DeepSpeed, PyTorch, Triton,
+FlashAttention, FlagScale, and FlagGems. We thank their authors and open-source
+communities. Third-party license information is provided in
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+## License
+
+The repository contains MIT- and Apache-2.0-licensed components. See
+[LICENSE](LICENSE), `licenses/`, and the license headers in imported components.
+Models and datasets remain subject to their respective licenses.
