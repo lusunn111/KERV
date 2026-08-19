@@ -155,7 +155,7 @@ KERV is also evaluated on an AgileX Piper robot arm in three task categories.
 ## Released Implementation
 
 ```text
-KERV-FlagOS/
+KERV/
 |-- run_kerv.py                    # public inference entry point
 |-- configs/kerv_libero_goal.yaml  # default BF16 runtime configuration
 |-- kerv_flagos/                   # optimized operators and runtime support
@@ -192,7 +192,7 @@ The reference environment uses Linux, Python 3.10, CUDA 12.x, and BF16. Create
 an isolated environment and install PyTorch for the CUDA version on your host:
 
 ```bash
-git clone https://github.com/lusunn111/KERV-FlagOS.git KERV
+git clone https://github.com/lusunn111/KERV.git KERV
 cd KERV
 
 conda create -n kerv python=3.10 -y
