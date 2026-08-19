@@ -247,7 +247,7 @@ def _patch_swiglu(
 
         implementation = "flagos_inplace_silu_and_mul"
     elif backend == "flagos_kerv":
-        from kerv_flagos.embodied_ops import kerv_silu_mul
+        from KERVRuntimeOptimization.embodied_ops import kerv_silu_mul
 
         silu_and_mul = kerv_silu_mul
         implementation = "flagos_embodied_kerv_silu_mul"
@@ -485,7 +485,7 @@ def fuse_transformer_linears(
 
     if add_rms_norm_rows:
         if add_rms_norm_backend == "adaptive":
-            from kerv_flagos.adaptive_rms_norm import (
+            from KERVRuntimeOptimization.adaptive_rms_norm import (
                 add_rms_norm_inference as fused_add_rms_norm,
             )
 
@@ -499,7 +499,7 @@ def fuse_transformer_linears(
             fused_add_rms_norm = None
             add_rms_norm_implementation = "flagos_native_inplace_add_rms_norm"
         elif add_rms_norm_backend == "flagos_kerv":
-            from kerv_flagos.embodied_ops import kerv_add_rms_norm
+            from KERVRuntimeOptimization.embodied_ops import kerv_add_rms_norm
 
             def fused_add_rms_norm(
                 attention_output: torch.Tensor,

@@ -1147,7 +1147,7 @@ def tree_decoding(
         # phase-two op to combine the fixed-node padding and embedding write
         # into the resident verifier input buffer.  More general gather maps
         # continue through the native embedding path.
-        from kerv_flagos.embodied_ops import kerv_tree_embed_pack
+        from KERVRuntimeOptimization.embodied_ops import kerv_tree_embed_pack
 
         # Packed tree sizes repeat across verification steps. Reuse the
         # device-side contiguous index vector instead of allocating and

@@ -1,4 +1,4 @@
-# FlagOS operator and runtime integration
+# KERV Runtime Operators and Integration
 
 ## Operator surface
 
@@ -37,7 +37,8 @@ Two model-level fusion routes are enabled by measured row-count allowlists:
 - **Gate-Up-SwiGLU fusion:** Gate and Up share the same input; one packed GEMM
   produces both branches, followed by an in-place SiLU/multiply epilogue.
 
-The allowlists in `configs/kerv_libero_goal.yaml` are part of the A100
+The allowlists in
+`KERV-RuntimeOptimization/FlagScale/configs/kerv_libero_goal.yaml` are part of the A100
 reference profile. Other dimensions fall back to the native CUDA path instead
 of assuming that a Triton kernel is always faster.
 

@@ -1,4 +1,4 @@
-"""Configuration and hit accounting for KERV FlagOS operators."""
+"""Configuration and hit accounting for KERV runtime operators."""
 
 from __future__ import annotations
 

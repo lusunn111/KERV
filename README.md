@@ -166,8 +166,10 @@ KERV is also evaluated on an AgileX Piper robot arm in three task categories.
 ```text
 KERV/
 |-- run_kerv.py                    # public inference entry point
-|-- configs/kerv_libero_goal.yaml  # default BF16 runtime configuration
-|-- kerv_flagos/                   # optimized operators and runtime support
+|-- KERV-RuntimeOptimization/
+|   |-- KERVRuntimeOptimization/   # optimized operators and runtime support
+|   |-- FlagScale/                 # launcher bridge, configuration, and license
+|   `-- LICENSE                    # runtime-extension license
 |-- openvla/                       # minimal OpenVLA/KERV runtime
 |-- training/                      # drafter data generation and training
 `-- docs/                          # operator and training documentation
@@ -359,5 +361,8 @@ communities. Third-party license information is provided in
 ## License
 
 The repository contains MIT- and Apache-2.0-licensed components. See
-[LICENSE](LICENSE), `licenses/`, and the license headers in imported components.
+[LICENSE](LICENSE),
+[KERV-RuntimeOptimization/LICENSE](KERV-RuntimeOptimization/LICENSE),
+[KERV-RuntimeOptimization/FlagScale/LICENSE](KERV-RuntimeOptimization/FlagScale/LICENSE),
+and the license headers in imported components.
 Models and datasets remain subject to their respective licenses.

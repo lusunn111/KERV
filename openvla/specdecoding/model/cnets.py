@@ -55,7 +55,7 @@ def _flagos_draft_logsoftmax_topk(
         and logits.shape[-1] >= 16384
         and int(k) == 8
     ):
-        from kerv_flagos.fused_logsoftmax_topk import (
+        from KERVRuntimeOptimization.fused_logsoftmax_topk import (
             fused_logsoftmax_topk,
         )
 

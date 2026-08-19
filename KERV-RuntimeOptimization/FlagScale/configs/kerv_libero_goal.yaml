@@ -7,13 +7,13 @@ experiment:
   task:
     type: inference
     backend: vllm
-    entrypoint: ${oc.env:KERV_RELEASE_ROOT}/kerv_flagos/inference_kerv.py
+    entrypoint: ${oc.env:KERV_RUNTIME_OPT_ROOT}/FlagScale/inference_kerv.py
   runner:
     hostfile: null
   envs:
     PATH: ${oc.env:PATH}
     CUDA_VISIBLE_DEVICES: ${oc.env:CUDA_VISIBLE_DEVICES,0}
-    PYTHONPATH: ${oc.env:KERV_RELEASE_ROOT}:${oc.env:KERV_RELEASE_ROOT}/openvla:${oc.env:FLAGSCALE_ROOT}
+    PYTHONPATH: ${oc.env:KERV_RUNTIME_OPT_ROOT}:${oc.env:KERV_RELEASE_ROOT}:${oc.env:KERV_RELEASE_ROOT}/openvla:${oc.env:FLAGSCALE_ROOT}
     LIBERO_CONFIG_PATH: ${oc.env:LIBERO_CONFIG_PATH}
     PYOPENGL_PLATFORM: ${oc.env:PYOPENGL_PLATFORM,osmesa}
     MUJOCO_GL: ${oc.env:MUJOCO_GL,osmesa}
@@ -40,7 +40,7 @@ inference:
     use_kalman_tree: true
     use_wandb: false
     local_log_dir: ${oc.env:KERV_OUTPUT_ROOT}/rollouts
-    run_id_note: flagos-kerv-bf16-safe
+    run_id_note: kerv-runtime-optimization-bf16-safe
     collect_spec_errors: false
     spec_error_output: null
     spec_history_output: null

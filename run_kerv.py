@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Single public launcher for the KERV FlagScale release."""
+"""Single public launcher for KERV and its runtime optimizations."""
 
 from __future__ import annotations
 
@@ -16,6 +16,7 @@ def _path(value: str) -> Path:
 
 def main() -> None:
     root = Path(__file__).resolve().parent
+    runtime_root = root / "KERV-RuntimeOptimization"
     parser = argparse.ArgumentParser(description="Run KERV on LIBERO through FlagScale")
     parser.add_argument(
         "--flagscale-root",
@@ -60,6 +61,8 @@ def main() -> None:
 
     if not flagscale_run.is_file():
         raise SystemExit(f"FlagScale launcher not found: {flagscale_run}")
+    if not runtime_root.is_dir():
+        raise SystemExit(f"KERV runtime package not found: {runtime_root}")
     if not args.dry_run:
         missing = [
             path
@@ -76,6 +79,7 @@ def main() -> None:
         {
             "FLAGSCALE_ROOT": str(flagscale_root),
             "KERV_RELEASE_ROOT": str(root),
+            "KERV_RUNTIME_OPT_ROOT": str(runtime_root),
             "KERV_PYTHON": sys.executable,
             "KERV_BASE_CHECKPOINT": str(base_checkpoint),
             "KERV_DRAFT_CHECKPOINT": str(draft_checkpoint),
@@ -89,6 +93,7 @@ def main() -> None:
     env["PYTHONPATH"] = os.pathsep.join(
         value
         for value in (
+            str(runtime_root),
             str(root),
             str(root / "openvla"),
             str(flagscale_root),
@@ -102,7 +107,7 @@ def main() -> None:
         sys.executable,
         str(flagscale_run),
         "--config-path",
-        str(root / "configs"),
+        str(runtime_root / "FlagScale" / "configs"),
         "--config-name",
         "kerv_libero_goal",
         f"action={action}",

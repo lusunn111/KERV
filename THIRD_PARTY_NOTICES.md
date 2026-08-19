@@ -8,8 +8,10 @@ This research release builds on the following open-source projects:
 - LIBERO for simulated robot-manipulation evaluation.
 - Hugging Face Transformers, PyTorch, Triton and DeepSpeed.
 
-Code under `kerv_flagos/` was developed against FlagScale and is distributed
-under the Apache License 2.0; see `licenses/FlagScale-APACHE-2.0.txt`. KERV and
-the included OpenVLA-derived source retain their applicable license notices.
+Code under `KERV-RuntimeOptimization/KERVRuntimeOptimization/` was developed
+against FlagScale and is distributed under the Apache License 2.0; see
+`KERV-RuntimeOptimization/LICENSE`. The FlagScale integration notice is kept
+at `KERV-RuntimeOptimization/FlagScale/LICENSE`. KERV and the included
+OpenVLA-derived source retain their applicable license notices.
 Users are responsible for reviewing the licenses and usage terms of separately
 downloaded models, datasets and simulator assets.

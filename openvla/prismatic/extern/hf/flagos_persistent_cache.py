@@ -352,7 +352,7 @@ class KervPersistentTreeCache(Cache):
         """Create the additive mask for one fixed-address graph template."""
         if int(tree_mask.shape[-1]) != self.tree_length:
             raise ValueError("tree mask does not match the selected tree template")
-        from kerv_flagos.tree_attention_mask import build_tree_causal_mask
+        from KERVRuntimeOptimization.tree_attention_mask import build_tree_causal_mask
 
         tree_start = self.tree_workspace_start
         key = (
@@ -446,7 +446,7 @@ class KervPersistentTreeCache(Cache):
             # storage as the existing commit kernel.  It takes a clone for
             # overlapping paths in its native fallback, preserving the exact
             # gather-before-write semantics of the original implementation.
-            from kerv_flagos.embodied_ops import kerv_kv_accept_commit
+            from KERVRuntimeOptimization.embodied_ops import kerv_kv_accept_commit
 
             if self.fixed_workspace_layout:
                 indices = indices + (self.prefix_capacity - previous_length)

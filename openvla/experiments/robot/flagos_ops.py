@@ -29,7 +29,7 @@ def enable_embodied_ops(
     inference entries without copying kernels into the model repository.
     """
 
-    from kerv_flagos.embodied_ops import configure_kerv_ops
+    from KERVRuntimeOptimization.embodied_ops import configure_kerv_ops
 
     manifest = configure_kerv_ops(
         enabled=enabled,
@@ -51,7 +51,7 @@ def enable_embodied_ops(
             and str(backend).lower() == "triton"
             and "kerv_static_tree_attention" in model._flagos_embodied_ops_include
         ):
-            from kerv_flagos.embodied_ops.static_tree_attention import (
+            from KERVRuntimeOptimization.embodied_ops.static_tree_attention import (
                 install_static_tree_attention,
             )
 
@@ -126,7 +126,7 @@ def enable_flag_gems(
             registered_keys = list(flag_gems.all_registered_keys()) if flag_gems_ops else []
             if adaptive_rms_norm:
                 from flag_gems.runtime.register import Register
-                from kerv_flagos.adaptive_rms_norm import (
+                from KERVRuntimeOptimization.adaptive_rms_norm import (
                     configure_adaptive_recording,
                     install_llama_rms_norm_bridge,
                     rms_norm_aten_inference,
@@ -192,7 +192,7 @@ def enable_linear_fusion(
     manifest_path: Optional[str],
 ) -> Dict[str, Any]:
     """Bridge the loaded OpenVLA model to FlagOS grouped Linear fusion."""
-    from kerv_flagos.adaptive_linear_fusion import (
+    from KERVRuntimeOptimization.adaptive_linear_fusion import (
         enable_linear_fusion as enable_flagos_linear_fusion,
     )
 
@@ -225,7 +225,7 @@ def enable_rotary_cache(
     manifest_path: Optional[str],
 ) -> Dict[str, Any]:
     """Bridge the OpenVLA verifier to the FlagOS per-forward RoPE cache."""
-    from kerv_flagos.rotary_cache import enable_rotary_cache as enable_flagos_rope_cache
+    from KERVRuntimeOptimization.rotary_cache import enable_rotary_cache as enable_flagos_rope_cache
 
     return enable_flagos_rope_cache(
         model=model,
@@ -247,7 +247,7 @@ def enable_rotary_fusion(
     manifest_path: Optional[str],
 ) -> Dict[str, Any]:
     """Bridge KERV verifier/drafter RoPE calls to the FlagOS fused kernel."""
-    from kerv_flagos.adaptive_rotary_fusion import (
+    from KERVRuntimeOptimization.adaptive_rotary_fusion import (
         enable_rotary_fusion as enable_flagos_rotary_fusion,
     )
 
@@ -298,7 +298,7 @@ def enable_tree_attention_mask(
     manifest_path: Optional[str],
 ) -> Dict[str, Any]:
     """Bridge the verifier tree mask to the FlagOS Triton construction kernel."""
-    from kerv_flagos.tree_attention_mask import (
+    from KERVRuntimeOptimization.tree_attention_mask import (
         enable_tree_attention_mask as enable_flagos_tree_attention_mask,
     )
 
@@ -838,7 +838,7 @@ def enable_tree_builder(
     model._flagos_static_tree_cache = {}
     model._flagos_static_tree_last_stats = {}
     if static_tree_attention != "off":
-        from kerv_flagos.embodied_ops.static_tree_attention import (
+        from KERVRuntimeOptimization.embodied_ops.static_tree_attention import (
             install_static_tree_attention,
         )
 

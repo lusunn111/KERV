@@ -1,4 +1,4 @@
-# KERV embodied operators
+# KERV Runtime Operators
 
 The package registers 18 KERV-specific interfaces in
 `torch.ops.flagos_embodied`. Fourteen mainline interfaces are available to the

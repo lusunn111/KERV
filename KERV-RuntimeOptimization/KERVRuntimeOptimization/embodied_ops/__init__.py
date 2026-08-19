@@ -1,4 +1,4 @@
-"""KERV-specific FlagOS operators.
+"""KERV-specific runtime operators.
 
 The package deliberately keeps the public surface small.  Every operator has
 an explicit native fallback and can be selected by the FlagScale runtime
