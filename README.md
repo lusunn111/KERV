@@ -113,8 +113,6 @@ persistent decode workspaces, compact CPU-GPU control transfers, and graph-safe
 fallback paths. These optimizations do not change the acceptance rule, Kalman
 logic, or action definition.
 
-![Dynamic and static tree-based verification](assets/kerv_runtime_optimization.png)
-
 ## Main Results
 
 ### LIBERO simulation
