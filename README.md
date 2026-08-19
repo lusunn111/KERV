@@ -57,35 +57,7 @@ caches, and hardware-aware operator fusion.
 An autoregressive VLA model produces a seven-DoF action slice as a sequence of
 action tokens. A lightweight drafter proposes candidate tokens, and the VLA
 model verifies them in parallel. KERV augments this process with kinematic
-feedback:
-
-```text
-Observation + Instruction
-          |
-          v
-   VLA Prefill / Drafter
-          |
-          v
- Candidate Action Tokens
-          |
-          v
- Batched Tree Verification ---- accepted prefix ----+
-          |                                         |
-          | rejected token                          |
-          v                                         |
- Token-to-Action Mapping                            |
-          |                                         |
-          v                                         |
- Kalman-Filter Compensation                         |
-          |                                         |
-          +------------------+----------------------+
-                             |
-                             v
-                    Complete Robot Action
-                             |
-                             v
-              Kinematic Threshold Adjustment
-```
+feedback.
 
 The verification and draft models execute on the GPU, while the lightweight
 Kalman compensation and threshold adjustment run on the CPU. Only the required
