@@ -1,11 +1,29 @@
-# KERV
+<h1 align="center">🤖 KERV: Kinematic-Rectified Speculative Decoding for Embodied VLA Models</h1>
 
-**Kinematic-Rectified Speculative Decoding for Embodied VLA Models**
+<p align="center">
+  Zihao Zheng · Zhihao Mao · Maoliang Li · Jiayu Chen · Xinhao Sun ·<br>
+  Zhaobo Zhang · Donggang Cao · Hong Mei · Xiang Chen
+</p>
 
-**Accepted at the 63rd ACM/IEEE Design Automation Conference (DAC 2026).**
+<p align="center">
+  <a href="https://dac.com/">
+    <img src="https://img.shields.io/badge/DAC-2026-7B2CBF.svg" alt="DAC 2026">
+  </a>
+  <a href="https://arxiv.org/abs/2603.01581">
+    <img src="https://img.shields.io/badge/arXiv-2603.01581-B31B1B.svg?logo=arxiv&logoColor=white" alt="arXiv">
+  </a>
+  <a href="https://arxiv.org/pdf/2603.01581">
+    <img src="https://img.shields.io/badge/Paper-PDF-E67E22.svg" alt="Paper PDF">
+  </a>
+  <a href="https://github.com/lusunn111/KERV">
+    <img src="https://img.shields.io/badge/Code-GitHub-181717.svg?logo=github&logoColor=white" alt="Code">
+  </a>
+  <a href="LICENSE">
+    <img src="https://img.shields.io/badge/License-MIT%20%2F%20Apache--2.0-2E86C1.svg" alt="License">
+  </a>
+</p>
 
-[[arXiv](https://arxiv.org/abs/2603.01581)]
-[[PDF](https://arxiv.org/pdf/2603.01581)]
+<p align="center"><strong>🔥 KERV has been accepted by DAC 2026!</strong></p>
 
 KERV is a speculative decoding framework for accelerating autoregressive
 Vision-Language-Action (VLA) models. It connects token-domain VLA generation
