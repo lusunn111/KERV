@@ -1,0 +1,2 @@
+-r requirements.txt
+deepspeed==0.18.5

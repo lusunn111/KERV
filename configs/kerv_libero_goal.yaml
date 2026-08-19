@@ -1,0 +1,173 @@
+defaults:
+  - _self_
+
+experiment:
+  exp_name: kerv_libero_goal
+  exp_dir: ${oc.env:KERV_OUTPUT_ROOT}/flagscale
+  task:
+    type: inference
+    backend: vllm
+    entrypoint: ${oc.env:KERV_RELEASE_ROOT}/kerv_flagos/inference_kerv.py
+  runner:
+    hostfile: null
+  envs:
+    PATH: ${oc.env:PATH}
+    CUDA_VISIBLE_DEVICES: ${oc.env:CUDA_VISIBLE_DEVICES,0}
+    PYTHONPATH: ${oc.env:KERV_RELEASE_ROOT}:${oc.env:KERV_RELEASE_ROOT}/openvla:${oc.env:FLAGSCALE_ROOT}
+    LIBERO_CONFIG_PATH: ${oc.env:LIBERO_CONFIG_PATH}
+    PYOPENGL_PLATFORM: ${oc.env:PYOPENGL_PLATFORM,osmesa}
+    MUJOCO_GL: ${oc.env:MUJOCO_GL,osmesa}
+    TF_CPP_MIN_LOG_LEVEL: "2"
+
+inference:
+  runtime:
+    python_executable: ${oc.env:KERV_PYTHON}
+    source_root: ${oc.env:KERV_RELEASE_ROOT}/openvla
+    work_dir: ${oc.env:KERV_OUTPUT_ROOT}
+    entrypoint: experiments/robot/libero/run_kerv_libero.py
+    model_family: openvla
+    pretrained_checkpoint: ${oc.env:KERV_BASE_CHECKPOINT}
+    spec_checkpoint: ${oc.env:KERV_DRAFT_CHECKPOINT}
+    task_suite_name: libero_goal
+    num_trials_per_task: 1
+    max_tasks: 1
+    max_episode_steps: 220
+    num_steps_wait: 10
+    max_planning_steps: 220
+    center_crop: true
+    use_spec: true
+    use_kalman_fallback: true
+    use_kalman_tree: true
+    use_wandb: false
+    local_log_dir: ${oc.env:KERV_OUTPUT_ROOT}/rollouts
+    run_id_note: flagos-kerv-bf16-safe
+    collect_spec_errors: false
+    spec_error_output: null
+    spec_history_output: null
+    runtime_stats_path: null
+
+    # FlagGems remains available for compatibility. The release-safe A100
+    # profile uses the measured KERV fusions instead of global ATen override.
+    flag_gems:
+      enabled: false
+      include: rms_norm
+      record: false
+      record_once: true
+      log_path: ${oc.env:KERV_OUTPUT_ROOT}/manifests/flag_gems_hits.log
+      manifest_path: ${oc.env:KERV_OUTPUT_ROOT}/manifests/flag_gems.json
+      rms_norm_backend: adaptive
+
+    # Mainline KERV operators. Experimental interfaces are shipped in source
+    # but deliberately excluded from the release-safe default.
+    embodied_ops:
+      enabled: true
+      include: kerv_silu_mul,kerv_add_rms_norm,kerv_verify_accept_control,kerv_static_tree_pack,kerv_static_tree_attention,kerv_action_projection_select,kerv_kv_commit,kerv_tree_embed_pack,kerv_rope_kv_store,kerv_action_verify_accept,kerv_draft_action_topk,kerv_kv_accept_commit,kerv_vision_add_layer_norm,kerv_vision_bias_gelu
+      backend: auto
+      record: false
+      record_once: true
+      strict: true
+      log_path: ${oc.env:KERV_OUTPUT_ROOT}/manifests/embodied_ops_hits.jsonl
+      manifest_path: ${oc.env:KERV_OUTPUT_ROOT}/manifests/embodied_ops.json
+
+    linear_fusion:
+      enabled: true
+      qkv_rows: "8,160,192,212,220,221,224,228,229,230,232,236,239,240,241,243,248,249,250,256"
+      gate_up_rows: "192,240,248,249,256,257,258,264,279,280,320"
+      qkv_input_sizes: "4096,1024,1152"
+      gate_up_input_sizes: "4096,1024,1152"
+      swiglu_rows: "8"
+      swiglu_input_sizes: "4096,1024,1152"
+      swiglu_backend: native_inplace
+      add_rms_norm_rows: ""
+      add_rms_norm_input_sizes: "4096,1024,1152"
+      add_rms_norm_backend: native_inplace
+      record: false
+      record_once: true
+      log_path: ${oc.env:KERV_OUTPUT_ROOT}/manifests/linear_fusion_hits.jsonl
+      manifest_path: ${oc.env:KERV_OUTPUT_ROOT}/manifests/linear_fusion.json
+
+    rope_cache:
+      enabled: false
+      record: false
+      record_once: true
+      log_path: ${oc.env:KERV_OUTPUT_ROOT}/manifests/rope_cache_hits.jsonl
+      manifest_path: ${oc.env:KERV_OUTPUT_ROOT}/manifests/rope_cache.json
+    rope_fusion:
+      enabled: true
+      resident_key_write: true
+      record: false
+      record_once: true
+      log_path: ${oc.env:KERV_OUTPUT_ROOT}/manifests/rope_fusion_hits.jsonl
+      manifest_path: ${oc.env:KERV_OUTPUT_ROOT}/manifests/rope_fusion.json
+    tree_attention_mask:
+      enabled: false
+      record: false
+      record_once: true
+      log_path: ${oc.env:KERV_OUTPUT_ROOT}/manifests/tree_mask_hits.jsonl
+      manifest_path: ${oc.env:KERV_OUTPUT_ROOT}/manifests/tree_mask.json
+    action_head:
+      enabled: false
+      action_vocab_size: 256
+      record: false
+      record_once: true
+      log_path: ${oc.env:KERV_OUTPUT_ROOT}/manifests/action_head_hits.jsonl
+      manifest_path: ${oc.env:KERV_OUTPUT_ROOT}/manifests/action_head.json
+    draft_logsoftmax_topk:
+      enabled: false
+      manifest_path: ${oc.env:KERV_OUTPUT_ROOT}/manifests/draft_topk.json
+    w8a16:
+      enabled: false
+
+    tree_builder:
+      enabled: true
+      manifest_path: ${oc.env:KERV_OUTPUT_ROOT}/manifests/tree_builder.json
+      fused_control_transfer: true
+      static_runtime: true
+      verify_max_paths: 48
+      cache_topology: true
+      operatorized: true
+      kalman_batch: true
+      node_buckets: "224,240,248,256,264,280,320"
+      compile_verifier: true
+      compile_mode: cuda-graph
+      cuda_graph_max_entries: 7
+      cuda_graph_capture_past_length: -1
+      persistent_runtime: true
+      persistent_prefix_capacity: 288
+      persistent_tree_capacity: 320
+      resident_kv_cache: true
+      fixed_workspace_layout: true
+      prewarm_graph_buckets: true
+      persistent_input_buffers: true
+      static_tree_attention: auto
+      compact_tree_mode: "off"
+
+    cuda_warmup_seconds: 1.0
+    timing_backend: cuda_event
+    async_runtime_logging: false
+    system_optimization:
+      enabled: true
+      prompt_cuda_graph: auto
+      draft_cuda_graph: auto
+      shared_graph_pool: true
+      process_level_warmup: true
+      verifier_gate_during_warmup: true
+      persistent_control_buffer: true
+      persistent_decode_workspace: true
+      prompt_token_cache: true
+      pinned_image_buffer: true
+      async_image_transfer: true
+      async_runtime_logging: false
+      persistent_draft_kv_cache: true
+      draft_graph_accept_buckets: [1, 2, 3, 4, 5, 6, 7]
+      commit_draft_cuda_graph: auto
+      commit_draft_stream_overlap: auto
+      task_level_graph_warmup: true
+      inference_mode: true
+      allocator_backend: auto
+      joint_commit_draft_graph: "off"
+      episode_device_warmup: auto
+      episode_warmup_duration_ms: 50
+      fixed_draft_input_workspace: true
+
+action: test

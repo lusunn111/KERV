@@ -1,0 +1,28 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.idea/
+.vscode/
+
+# Models and generated data are intentionally not distributed.
+/checkpoints/
+/weights/
+/data/
+/datasets/
+*.bin
+*.ckpt
+*.pt
+*.pth
+*.safetensors
+
+# Runtime artifacts.
+/outputs/
+/rollouts/
+/logs/
+/wandb/
+*.log
+*.jsonl
+*.mp4
+*.npz
+*.npy
