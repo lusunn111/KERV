@@ -1,8 +1,13 @@
 # KERV
 
-**Kinematic-Rectified Speculative Generation for Embodied VLA Models with On-Device Runtime Optimization**
+**Kinematic-Rectified Speculative Decoding for Embodied VLA Models**
 
-KERV is a speculative generation framework for accelerating autoregressive
+**Accepted at the 63rd ACM/IEEE Design Automation Conference (DAC 2026).**
+
+[[arXiv](https://arxiv.org/abs/2603.01581)]
+[[PDF](https://arxiv.org/pdf/2603.01581)]
+
+KERV is a speculative decoding framework for accelerating autoregressive
 Vision-Language-Action (VLA) models. It connects token-domain VLA generation
 with kinematic-domain robot control to address two limitations of speculative
 decoding in embodied tasks:
@@ -16,6 +21,13 @@ tokens without re-inference and adjusts the acceptance threshold using
 kinematic variability. The on-device runtime further combines CPU-GPU
 collaborative execution, static tree-based verification, and hardware-aware
 operator fusion.
+
+![Overview of KERV](assets/kerv_overview.png)
+
+The core KERV method was accepted at DAC 2026. This repository also includes
+the extended on-device runtime implementation: CPU-GPU collaborative
+deployment, static tree-based verification, CUDA Graph replay, persistent
+caches, and hardware-aware operator fusion.
 
 > This repository is a research release. It contains the KERV inference path,
 > optimized operators, runtime integration, and drafter training pipeline.
@@ -63,6 +75,8 @@ control values are exchanged between the two sides.
 
 ## Method
 
+![KF-based compensation and kinematic-based threshold adjustment](assets/kerv_mechanisms.png)
+
 ### KF-Based Compensation Mechanism
 
 When speculative verification encounters an incorrect action token, standard
@@ -74,7 +88,7 @@ concatenated into one complete command, avoiding costly re-inference.
 
 The default setting uses an action context of 10 and a prediction length of 1.
 To prevent error accumulation, compensation is activated intermittently; the
-following four inference steps use speculative generation without Kalman
+following four inference steps use speculative decoding without Kalman
 compensation.
 
 ### Kinematic-Based Threshold Adjustment
@@ -109,12 +123,17 @@ persistent decode workspaces, compact CPU-GPU control transfers, and graph-safe
 fallback paths. These optimizations do not change the acceptance rule, Kalman
 logic, or action definition.
 
+![Dynamic and static tree-based verification](assets/kerv_runtime_optimization.png)
+
 ## Main Results
 
 ### LIBERO simulation
 
-The TCAD manuscript evaluates 50 trials for each task in all four LIBERO task
-suites. KERV uses a fine-tuned OpenVLA verifier and a one-block LLaMA drafter.
+The extended evaluation performs 50 trials for each task in all four LIBERO
+task suites. KERV uses a fine-tuned OpenVLA verifier and a one-block LLaMA
+drafter.
+
+![KERV example on LIBERO-Goal](assets/kerv_simulation_example.png)
 
 | Suite | Success Rate | Speedup | AFEP | Avg. Steps |
 |---|---:|---:|---:|---:|
@@ -145,6 +164,8 @@ runs.
 ### Real-world manipulation
 
 KERV is also evaluated on an AgileX Piper robot arm in three task categories.
+
+![KERV real-world manipulation example](assets/kerv_real_world_example.png)
 
 | Task | Avg. Score | Speedup | AFEP | Avg. Steps |
 |---|---:|---:|---:|---:|
@@ -322,19 +343,23 @@ semantics.
 
 ## Citation
 
-If KERV is useful in your research, please cite the manuscript:
+If KERV is useful in your research, please cite the DAC paper:
 
 ```bibtex
-@article{zheng2026kerv,
-  title   = {Kinematic-Rectified Speculative Generation for Embodied VLA Models with On-Device Runtime Optimization},
-  author  = {Zheng, Zihao and Mao, Zhihao and Han, Yulong and Cao, Hangyu and Chen, Jiayu and Li, Maoliang and Zhang, Zhaobo and Cao, Donggang and Mei, Hong and Chen, Xiang},
-  journal = {IEEE Transactions on Computer-Aided Design of Integrated Circuits and Systems},
-  year    = {2026}
+@inproceedings{zheng2026kerv,
+  title     = {{KERV}: Kinematic-Rectified Speculative Decoding for Embodied {VLA} Models},
+  author    = {Zheng, Zihao and Mao, Zhihao and Li, Maoliang and Chen, Jiayu and Sun, Xinhao and Zhang, Zhaobo and Cao, Donggang and Mei, Hong and Chen, Xiang},
+  booktitle = {Proceedings of the 63rd ACM/IEEE Design Automation Conference (DAC)},
+  year      = {2026},
+  note      = {To appear},
+  eprint    = {2603.01581},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.RO}
 }
 ```
 
-The BibTeX entry will be updated when the final bibliographic record becomes
-available.
+The page range and DOI will be added when the final DAC bibliographic record
+becomes available.
 
 ## Acknowledgements
 
